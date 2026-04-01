@@ -17,18 +17,21 @@ You (Slack)  →  Socket Mode WebSocket  →  C# MCP Server (stdio)  →  Claude
 ## Project Structure
 
 ```
-src/SlackBridge.Claude/
-├── Program.cs                          # Entry point, DI wiring, channel name derivation
-├── Configuration/SlackOptions.cs       # Env var config (SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_CHANNEL)
-├── Slack/
-│   ├── SlackConnectionService.cs       # Hosted service: Socket Mode connect, channel resolve/create, readiness gate
-│   └── MessageHandler.cs              # Filters messages, forwards to MCP notifications
-└── Mcp/
-    ├── McpKeepAliveService.cs         # Periodic pings to prevent Claude Code from disconnecting
-    └── Tools/
-        ├── ReplyTool.cs               # Threaded replies with auto-chunking (3900 char limit)
-        ├── ReactTool.cs               # Add/remove emoji reactions (handles already_reacted/no_reaction)
-        └── EditMessageTool.cs         # Update bot messages
+src/
+├── SlackBridge.Claude/                 # MCP server
+│   ├── Program.cs                      # Entry point, DI wiring, channel name derivation
+│   ├── Configuration/SlackOptions.cs   # Env var config (SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_CHANNEL)
+│   ├── Slack/
+│   │   ├── SlackConnectionService.cs   # Hosted service: Socket Mode connect, channel resolve/create, readiness gate
+│   │   └── MessageHandler.cs           # Filters messages, forwards to MCP notifications
+│   └── Mcp/Tools/
+│       ├── ReplyTool.cs                # Threaded replies with auto-chunking (3900 char limit)
+│       ├── ReactTool.cs                # Add/remove emoji reactions (handles already_reacted/no_reaction)
+│       ├── EditMessageTool.cs          # Update bot messages
+│       └── UploadFileTool.cs           # Upload files to Slack channel
+└── SlackBridge.Claude.Hook/            # PreToolUse approval hook
+    ├── Program.cs                      # Hook entry point (PreToolUse + UserPromptSubmit modes)
+    └── LocalActivity.cs                # Local vs remote activity tracking via timestamp files
 ```
 
 ## Key Dependencies
@@ -60,11 +63,12 @@ Socket Mode: enabled
 - MessageUpdate: uses `ChannelId` property, not `Channel`
 - SlackServiceBuilder: `GetApiClient()` and `GetSocketModeClient()` are on the builder directly, `SlackServiceProvider` is internal
 - RegisterEventHandler receives `SlackRequestContext`, not `IServiceProvider`
+- `File` is ambiguous between `SlackNet.File` and `System.IO.File` — use `System.IO.File` explicitly
 
 ## Building & Running
 
 ```bash
-dotnet build
+dotnet build -c Release
 # Launch as Claude Code channel plugin (local dev):
 claude --dangerously-load-development-channels server:slack-bridge
 ```

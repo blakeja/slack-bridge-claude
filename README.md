@@ -38,9 +38,9 @@ Under **OAuth & Permissions** → **Scopes** → **Bot Token Scopes**, add:
 | `channels:read` | List channels to find/resolve the target channel |
 | `channels:manage` | Auto-create the channel if it doesn't exist |
 | `chat:write` | Post replies and messages |
-| `reactions:read` | Read reactions (for future use) |
+| `reactions:read` | Read reactions |
 | `reactions:write` | Add/remove emoji reactions on messages |
-| `files:write` | Upload files (for future use) |
+| `files:write` | Upload files to Slack |
 | `users:read` | Resolve user display names |
 
 ### 3. Enable Socket Mode
@@ -76,8 +76,8 @@ Optionally set `SLACK_CHANNEL` to override the auto-derived channel name.
 ### 7. Build & Publish
 
 ```bash
-git clone https://github.com/youruser/SlackBridge.Claude.git
-cd SlackBridge.Claude
+git clone https://github.com/blakeja/slack-bridge-claude.git
+cd slack-bridge-claude
 
 # Development (requires .NET 10 SDK):
 dotnet build -c Release
@@ -129,29 +129,52 @@ Long responses are automatically chunked to fit Slack's message limits.
 
 ## MCP Tools
 
-The server exposes three tools to Claude Code:
+The server exposes four tools to Claude Code:
 
 | Tool | Description |
 |------|-------------|
 | `reply` | Post a threaded reply (auto-chunks long messages) |
 | `react` | Add/remove emoji reactions on messages |
 | `edit_message` | Update a previously posted bot message |
+| `upload_file` | Upload a file to the channel (from content or file path) |
+
+## Remote Approval Hook
+
+When you're away from the terminal and interacting via Slack, Claude Code's permission prompts are automatically forwarded to the Slack thread. You can reply **yes** or **no** to approve or deny tool usage.
+
+The system auto-detects whether you're local or remote:
+- **Slack message received** → marks session as remote, approvals go to Slack
+- **Terminal input detected** → marks session as local, approvals show in terminal
+
+No manual mode switching required — it just works.
+
+### How it works
+
+The `SlackBridge.Claude.Hook` project is a `PreToolUse` hook that:
+1. Checks if the last interaction came from Slack (via a timestamp file)
+2. If remote: posts the tool details to the Slack thread and polls for a yes/no reply
+3. If local: does nothing, normal terminal prompt appears
+
+Configuration is in `.claude/settings.json` — the hook is pre-configured for `Bash`, `Write`, `Edit`, and MCP tool calls.
 
 ## Project Structure
 
 ```
-src/SlackBridge.Claude/
-├── Program.cs                          # Entry point, DI wiring, channel name derivation
-├── Configuration/SlackOptions.cs       # Env var config
-├── Slack/
-│   ├── SlackConnectionService.cs       # Socket Mode connect, channel resolve/create
-│   └── MessageHandler.cs              # Message filtering, MCP notification forwarding
-└── Mcp/
-    ├── McpKeepAliveService.cs         # Periodic pings to keep MCP connection alive
-    └── Tools/
-        ├── ReplyTool.cs               # Threaded replies with auto-chunking
-        ├── ReactTool.cs               # Emoji reactions
-        └── EditMessageTool.cs         # Message editing
+src/
+├── SlackBridge.Claude/                 # MCP server
+│   ├── Program.cs                      # Entry point, DI wiring, channel name derivation
+│   ├── Configuration/SlackOptions.cs   # Env var config
+│   ├── Slack/
+│   │   ├── SlackConnectionService.cs   # Socket Mode connect, channel resolve/create
+│   │   └── MessageHandler.cs           # Message filtering, MCP notification forwarding
+│   └── Mcp/Tools/
+│       ├── ReplyTool.cs                # Threaded replies with auto-chunking
+│       ├── ReactTool.cs                # Emoji reactions
+│       ├── EditMessageTool.cs          # Message editing
+│       └── UploadFileTool.cs           # File uploads
+└── SlackBridge.Claude.Hook/            # PreToolUse approval hook
+    ├── Program.cs                      # Hook entry point (PreToolUse + UserPromptSubmit)
+    └── LocalActivity.cs                # Local vs remote activity tracking
 ```
 
 ## Configuration
@@ -176,9 +199,10 @@ The MCP server is configured via `.mcp.json` in the project root:
 ## Troubleshooting
 
 - **"Channel ID not resolved yet"** — The tool fired before Slack connected. This is a race condition that should be handled automatically, but if it persists, check that your tokens are valid.
-- **MCP server disconnects** — The server sends periodic keepalive pings. If disconnects persist, check `~/.slackbridge-claude/server.log` for errors.
+- **MCP server disconnects** — Check `~/.slackbridge-claude/server.log` for errors. Ensure the MCP server process isn't being killed by antivirus or system policies.
 - **Bot doesn't respond** — Make sure the bot is in the channel and that `message.channels` event subscription is enabled.
 - **Build fails with file lock** — The MCP server process is still running. Kill it with `taskkill /F /IM SlackBridge.Claude.exe` (Windows) or `pkill SlackBridge.Claude` (Linux/macOS), then rebuild.
+- **Remote approvals not appearing** — Ensure the MCP server has written `~/.slackbridge-claude/hook-config.json` (happens on first Slack connection).
 
 ## License
 
