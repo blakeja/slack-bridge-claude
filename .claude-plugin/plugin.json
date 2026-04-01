@@ -1,0 +1,11 @@
+{
+  "name": "slack",
+  "version": "0.1.0",
+  "description": "Slack channel bridge for remotely controlling Claude Code instances. Post prompts in a Slack channel, get responses back.",
+  "keywords": ["slack", "messaging", "channel", "remote-control", "mcp"],
+  "channels": [
+    {
+      "server": "slack-bridge"
+    }
+  ]
+}

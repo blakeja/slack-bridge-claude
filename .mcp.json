@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "slack-bridge": {
+      "command": "dotnet",
+      "args": ["run", "--no-build", "-c", "Release", "--project", "src/SlackBridge.Claude"],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_APP_TOKEN": "${SLACK_APP_TOKEN}"
+      }
+    }
+  }
+}

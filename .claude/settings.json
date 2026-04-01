@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "src/SlackBridge.Claude.Hook/bin/Release/net10.0/SlackBridge.Claude.Hook.exe local-touch",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "src/SlackBridge.Claude.Hook/bin/Release/net10.0/SlackBridge.Claude.Hook.exe",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}
